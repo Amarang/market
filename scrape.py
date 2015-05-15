@@ -1,7 +1,7 @@
 import urllib, urllib2, json, time, datetime, math
-import correlation
+import correlation, plot
+import random
 
-stockSymbol = "AA"
 storageFolder = "storage/"
 
 def getStock(stockSymbol, saveToTxt=False, loadFromSite=True):
@@ -37,10 +37,39 @@ def getStock(stockSymbol, saveToTxt=False, loadFromSite=True):
     # convert them into unix time stamps
     timestamps = map(lambda s: time.mktime(datetime.datetime.strptime(s, "%Y-%m-%d").timetuple()), dates)
     # convert them into days since 2000 to make numbers more readable
-    timestamps = map(daysSince2000, timestamps)
+    timestamps = map(UTCtoDaysSince2000, timestamps)
 
     # shortcut to DataSeries
     dataseries = data["Elements"][0]["DataSeries"]
+
+    # print timestamps
+
+    # timestamps = timestamps[:30] # XXX
+    pricesClose, newTimestamps, newDates = [], [], []
+    prevWeekday = timestamps[0]-1
+    prevPrice = dataseries["close"]["values"][0]
+    daysIntoWeekend = 0
+    for i,day in enumerate(timestamps):
+        if day != prevWeekday + 1:
+            daysIntoWeekend += 1
+            # then this is a weekend, so add last weekday's price
+            newTimestamps.append(prevWeekday+daysIntoWeekend)
+            newDates.append( daysSince2000toUTC(prevWeekday+daysIntoWeekend) )
+            pricesClose.append(prevPrice)
+        else:
+            newTimestamps.append(day)
+            newDates.append( daysSince2000toUTC(day) )
+            pricesClose.append( dataseries["close"]["values"][i] )
+            prevPrice = dataseries["close"]["values"][i]
+
+            daysIntoWeekend = 0
+            prevWeekday = day
+
+    print newTimestamps
+    print newDates
+    print pricesClose
+
+
 
     # make a dictionary where we have open,high,low,close as keys and the corresponding prices as values
     values = {}
@@ -58,9 +87,11 @@ def getStock(stockSymbol, saveToTxt=False, loadFromSite=True):
 
     return stock
 
-def daysSince2000(unixtimestamp):
-    return 1.0*(unixtimestamp-946684800)/86400
+def UTCtoDaysSince2000(unixtimestamp):
+    return int(1.0*(unixtimestamp-946684800)/86400)
     
+def daysSince2000toUTC(ds2000):
+    return 1.0*ds2000*86400+946684800
 
 def printStock(stock):
 
@@ -83,11 +114,22 @@ def printStock(stock):
 def correlationTime(s1, s2):
     timestamps = s1["timestamps"]
     # let's just look at closing prices
-    d1 = dict( zip(  timestamps , s1["values"]["close"] ) )
-    d2 = dict( zip(  timestamps , s2["values"]["close"] ) )
+    s1vals = s1["values"]["close"] 
+    s2vals = s2["values"]["close"] 
 
-    G = correlation.getCorrelation( timestamps, d1, d2, maxtimeunits=20 )
+    # # generate dummy data XXX XXX
+    # timestamps = [i for i in range(len(s1vals))]
+    # newvals = [random.random()*10+20 for i in range(len(s1vals))]
+    # s1vals, s2vals = newvals, newvals
+
+
+    d1 = dict( zip(  timestamps , s1vals ) )
+    d2 = dict( zip(  timestamps , s2vals ) )
+
+    G = correlation.getCorrelation( timestamps, d1, d2, maxdays=30 )
     peak = correlation.findPeak(G)
+
+    plot.plotDict(G, "pcorr.png")
 
     # print "test={",
     # for key in G.keys():
@@ -107,10 +149,12 @@ def correlationTime(s1, s2):
 
 
 stocks = {}
-symbols = ["RGA", "KPTI", "SKYW"] #, "AA", "AAPL", "INTC"]
+# symbols = ["RGA", "KPTI", "SKYW"] #, "AA", "AAPL", "INTC"]
 # symbols = ["DIS", "AA", "AAPL", "INTC"]
+symbols = ["DIS"]
+
 for symbol in symbols:
-    stocks[symbol] = getStock(symbol)
+    stocks[symbol] = getStock(symbol, loadFromSite=False)
 
 for symbol1 in stocks.keys():
     # print symbol1, symbol1, correlationTime(stocks[symbol1], stocks[symbol1])

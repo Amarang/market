@@ -19,28 +19,35 @@ d1 = dict(zip(times,ls1))
 d2 = dict(zip(times,ls2))
 
 
-def getCorrelation(times, d1, d2, maxtimeunits=20):
-    # This function requires a list of times, and dictionaries of time:value pairs for two stocks
+def getCorrelation(times, d1, d2, maxdays=20):
+    # This function requires a list of times, and dictionaries of 
+    # time:value pairs for two stocks
 
     # Here I compute G(tau) = (1/N)*integral of f(t)g(t+tau) dt
     G = {}
 
-    # we want to find the correlation time if it's between say 0 time units and maxtimeunits time units
-    # if maxtimeunits > the amount of timestamps we have, just use the latter
+    # we want to find the correlation time if it's between say 0 time 
+    # units and maxdays time units
+    # if maxdays>the amount of timestamps we have, just use the latter
     # time units will be something like [1 day, 2 days, 3 days, etc.]
-    timeunits = [times[i] - times[0] for i in range(min(len(times), maxtimeunits))]
+    timeunits = [int(times[i] - times[0]) for i in range(min(len(times), maxdays))]
+    # actually, we want timeunits to possibly include weekends, and we
+    # will set the weekend price to the closing price on the last
+    # weekday to avoid this weird week peak problem
+    timeunits = [i for i in range(min(len(times), maxdays))]
 
     # scan over correlation times
     for tau in timeunits:
         s = 0.0
         # perform integral
         for i in range(len(times)):
+            # we require that we are within the range of times for d2
             try:
+                # if times[i] + tau <= len(d2.keys()):
                 # f(t) g(t+tau) dt
                 dt = 1.0* (times[i+1] - times[i])
                 s += 1.0*(d1[ times[i] ] * d2[ times[i] +tau ] * dt)
-            except: # this means that adding tau takes us beyond the range of times for d2
-                pass
+            except: pass
 
         G[tau] = s/len(times) # multiply by 1/N
 
@@ -52,6 +59,7 @@ def getCorrelation(times, d1, d2, maxtimeunits=20):
     return G
 
 def findPeak(d1):
+    # XXX CHANGEME. RIGHT NOW IT JUST FINDS THE MAXIMUM, BUT WE WANT A TRUE PEAKFINDER
     # This function requires a dictionary of time:value pairs
     maxkey, maxval = 0.0, 0.0
     for key in d1:
