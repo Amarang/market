@@ -18,6 +18,21 @@ times = [2*i for i in range(len(ls1))]
 d1 = dict(zip(times,ls1))
 d2 = dict(zip(times,ls2))
 
+def scalePoints(vals):
+    # we have a collection of points with a minimum and maximum
+    # we want to scale it such that the minimum is -1 and
+    # maximum is +1
+    minv, maxv = min(vals), max(vals)
+    return [2.0*(val - minv)/(maxv-minv) - 1.0 for val in vals]
+
+    minv = min(vals)
+
+def dailyChange(vals):
+    return [0.0] + [vals[i+1] - vals[i] for i in range(len(vals)-1)]
+
+def deviationFromAvg(vals):
+    avg = 1.0*sum(vals)/len(vals)
+    return [1.0*val/avg - 1.0 for val in vals]
 
 def getCorrelation(times, d1, d2, maxdays=20):
     # This function requires a list of times, and dictionaries of 
@@ -28,22 +43,15 @@ def getCorrelation(times, d1, d2, maxdays=20):
 
     # we want to find the correlation time if it's between say 0 time 
     # units and maxdays time units
-    # if maxdays>the amount of timestamps we have, just use the latter
-    # time units will be something like [1 day, 2 days, 3 days, etc.]
-    timeunits = [int(times[i] - times[0]) for i in range(min(len(times), maxdays))]
-    # actually, we want timeunits to possibly include weekends, and we
-    # will set the weekend price to the closing price on the last
-    # weekday to avoid this weird week peak problem
-    timeunits = [i for i in range(min(len(times), maxdays))]
+    rangeofdays = [i for i in range(min(len(times), maxdays))]
 
     # scan over correlation times
-    for tau in timeunits:
+    for tau in rangeofdays:
         s = 0.0
         # perform integral
         for i in range(len(times)):
             # we require that we are within the range of times for d2
             try:
-                # if times[i] + tau <= len(d2.keys()):
                 # f(t) g(t+tau) dt
                 dt = 1.0* (times[i+1] - times[i])
                 s += 1.0*(d1[ times[i] ] * d2[ times[i] +tau ] * dt)
