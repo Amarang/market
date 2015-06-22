@@ -1,33 +1,32 @@
-import urllib, urllib2, json, time, datetime, math
+import urllib, urllib2, json, time, datetime, math, os, random
 import correlation, plot
-import random
 
 storageFolder = "storage/"
 
-def getStock(stockSymbol, saveToTxt=False, loadFromSite=True):
-    # print ">>> Fetching", stockSymbol
-    fetchDict={"Normalized":"False","NumberOfDays":365,"DataPeriod":"Day","Elements":[{"Symbol":stockSymbol,"Type":"price","Params":["ohlc"]}]} # XXX
-    # fetchDict={"Normalized":"False","NumberOfDays":25,"DataPeriod":"Day","Elements":[{"Symbol":stockSymbol,"Type":"price","Params":["ohlc"]}]}
+def getStock(stockSymbol):
+    fetchDict={"Normalized":"False","NumberOfDays":365,"DataPeriod":"Day","Elements":[{"Symbol":stockSymbol,"Type":"price","Params":["ohlc"]}]}
 
     source = ""
-    if(loadFromSite):
+    # print "./%s/%s.txt" % (storageFolder, stockSymbol)
+    # print os.path.isfile("./%s/%s.txt" % (storageFolder, stockSymbol) )
+    if(not os.path.isfile("./%s/%sstock.txt" % (storageFolder, stockSymbol) ) ):
+        # return
         source = urllib.urlopen(
             "http://dev.markitondemand.com/Api/v2/InteractiveChart/json?parameters=%s" % fetchDict
             ).read()
         if(len(source) < 100):
             print "Malformed data for", stockSymbol
             return
-    else:
-        fh = open("%s%sstock.txt" % (storageFolder, stockSymbol), "r")
-        source = fh.read()
-        fh.close()
 
-    if(saveToTxt): 
         fh = open("%s%sstock.txt" % (storageFolder, stockSymbol), "w")
         fh.write(source)
         fh.close()
         print "Saved stock info for %s" % stockSymbol
-        # return 
+
+    else:
+        fh = open("%s%sstock.txt" % (storageFolder, stockSymbol), "r")
+        source = fh.read()
+        fh.close()
 
     data = json.loads(source)
 
@@ -134,6 +133,10 @@ def correlationTime(s1, s2):
     # s1vals = correlation.deviationFromAvg( s1vals )
     # s2vals = correlation.deviationFromAvg( s2vals )
 
+    plot.listPlot(s1vals, "pcorr1.png", title=s1["symbol"] )
+    plot.listPlot(s2vals, "pcorr2.png", title=s2["symbol"] )
+
+
     s1vals = correlation.dailyChange( s1vals )
     s2vals = correlation.dailyChange( s2vals )
 
@@ -147,9 +150,7 @@ def correlationTime(s1, s2):
     G = correlation.getCorrelation( timestamps, d1, d2, maxdays=20 )
     peak = correlation.findPeak(G)
 
-    plot.listPlot(s1vals, "pcorr1.png")
-    plot.listPlot(s2vals, "pcorr2.png")
-    plot.dictPlot(G, "pcorr.png")
+    plot.dictPlot(G, "pcorr.png", title=s1["symbol"] + " & " + s2["symbol"])
 
     # print "test={",
     # for key in G.keys():
@@ -171,13 +172,14 @@ def correlationTime(s1, s2):
 
 stocks = {}
 # symbols = ["AAPL", "INTC"]
-symbols = ["V", "MA"]
+# symbols = ["V","MA"]
+symbols = ["ATO","NJR","V","MA"]
 
 
 for symbol in symbols:
-    stocks[symbol] = getStock(symbol, loadFromSite=False)
+    stocks[symbol] = getStock(symbol)
 
-correlationTime(stocks["V"], stocks["MA"])
+correlationTime(stocks["V"], stocks["NJR"])
 
 # for symbol1 in stocks.keys():
 #     # print symbol1, symbol1, correlationTime(stocks[symbol1], stocks[symbol1])
